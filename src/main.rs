@@ -3,8 +3,10 @@ use std::char;
 
 fn codgen(seed: &mut u32) -> u32 {
     let local_seed: u32;
-    local_seed = *seed;   // Sets up variables for binary zero counting
-    
+    unsafe {
+        local_seed = *seed;   // Sets up variables for binary zero counting
+    }
+
     let mut seed_mod = local_seed;
     let mut n: u32 = 32;
 
@@ -16,9 +18,10 @@ fn codgen(seed: &mut u32) -> u32 {
     let x: u32 = (local_seed).rotate_right(2);       // Does stuff with the seed
     let y: u32 = (local_seed as i32 >> 6) as u32; 
 
-    *seed = x ^ y ^ n;          // Generates the next seed
-    *seed ^ 0x464b713e          // Returns a part of a decode key
-    
+    unsafe {
+        *seed = x ^ y ^ n;          // Generates the next seed
+        *seed ^ 0x464b713e          // Returns a part of a decode key
+    }    
 }
 
 fn decode(wordarr: &[u32], bytearr: &mut [u32], seed: &mut u32) -> u32 {
@@ -28,16 +31,20 @@ fn decode(wordarr: &[u32], bytearr: &mut [u32], seed: &mut u32) -> u32 {
     
     let mut r: u32;
 
-    if wordarr[0] == 0 {        // Sets the last bytearr char to null when the wordarr array terminates
-        bytearr[0] = 0;
+    if unsafe {wordarr[0] == 0} {        // Sets the last bytearr char to null when the wordarr array terminates
+        unsafe {
+            bytearr[0] = 0;
+        }
         r = x;                  // And returns a part of the key to the previous char
     }
     else {             // Calculates the current char depending on the following chars
         let y: u32;
         let m: u32;
-        y = decode(&wordarr[1..], &mut bytearr[1..], seed);
-        m = x.wrapping_sub(y).wrapping_sub(wordarr[0]);
-        bytearr[0] = (m & 0x000ff000).wrapping_shr(13);
+        unsafe {
+            y = decode(&wordarr[1..], &mut bytearr[1..], seed);
+            m = x.wrapping_sub(y).wrapping_sub(wordarr[0]);
+            bytearr[0] = (m & 0x000ff000).wrapping_shr(13);
+        }
         r = (!codgen(seed)) + 1;
         r = x.wrapping_add(y).wrapping_add(m).wrapping_add(r).wrapping_add(5); // Returns a part of the decode key for the previous char
     }
@@ -74,9 +81,7 @@ fn main() {
     //static mut bytearr: [u32; 4] = [0; 4];       // Destination for the decoded chars
     static mut BYTEARR: [u32; 132] = [0; 132];
 
-    unsafe{
-        decode(&WORDARR, &mut BYTEARR, &mut SEED);  // Decodes the array
-    }
+    decode(&WORDARR, unsafe {&mut BYTEARR}, unsafe {&mut SEED});  // Decodes the array
     
     unsafe {
         for index in BYTEARR.iter() {               // Prints the decoded chars
